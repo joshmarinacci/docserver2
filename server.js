@@ -51,33 +51,80 @@ function startServer(options) {
     const DB_FILE = path.join(options.DIR,'database.db')
     const DB = new NEDB({filename: DB_FILE, autoload:true})
 
-    function saveDoc(username, query, body) {
+    function saveDoc(username, query, body, file) {
         return new Promise((res,rej)=>{
             console.log("saving the doc",body,'using query',query,'username',username)
+
             const fid = "data"+Math.floor(Math.random()*10*1000*1000)
             const fpath = path.join(options.DIR,'data',username,fid)
             const fdir = path.join(options.DIR,'data',username)
 
-            const meta = {
-                type: query.type?query.type:'unknown',
-                title:query.title?query.title:'untitled',
-                mimetype:'application/json',
-                extension:'json',
-                datapath:fpath
-            }
+
+
             console.log("writing to disk as",fpath)
-            // const file = fs.createWriteStream(fpath,{encoding:'binary'})
-            const data = JSON.stringify(body)
-            console.log("Making the dir",fdir)
+            let data = JSON.stringify(body)
             mkdir(fdir).then(()=>{
-                console.log("made the dir",fdir)
+                if(file) {
+                    console.log("uploading a file, actually",file)
+                    const fname = query.filename?query.filename:file.name
+                    const extension = fname.substring(fname.lastIndexOf('.')+1)
+                    const meta = {
+                        username:username,
+                        type: query.type ? query.type : 'unknown',
+                        title: query.title ? query.title : 'untitled',
+                        filename: query.filename ? query.filename : file.name,
+                        mimetype: query.mimetype ? query.mimetype : file.type,
+                        extension:extension,
+                        datapath: fpath,
+                    }
+                    console.log("file meta is",meta)
+                    fs.rename(file.path,fpath,(err)=> {
+                        if (err) return rej(err)
+                        DB.insert(meta, (err, newDoc) => {
+                            if (err) return rej(err)
+                            console.log("the new doc is", newDoc)
+                            return res(newDoc)
+                        })
+                    })
+                    return
+                }
                 fs.writeFile(fpath,data,(err)=>{
                     if(err) return rej(err)
-                    DB.insert(meta,(err,newDoc)=>{
-                        if(err) return rej(err)
-                        console.log("the new doc is",newDoc)
-                        return res(newDoc)
-                    })
+                    if(query.id) {
+                        console.log("updating instead of creating")
+                        const meta = {
+                            $set: {
+                                username: username,
+                                datapath: fpath,
+                            }
+                        }
+                        if(query.type) meta.$set.type = query.type
+                        if(query.title) meta.$set.title = query.title
+                        console.log("updating fields",meta)
+                        DB.update(
+                            {_id:query.id,username:username},//query
+                            meta, //fields
+                            {returnUpdatedDocs:true},//options
+                            (err,num,doc)=>{
+                            if (err) return rej(err)
+                                console.log("hte updated doc is",doc)
+                            return res(doc)
+                        })
+                    } else {
+                        const meta = {
+                            username:username,
+                            type: query.type ? query.type : 'unknown',
+                            title: query.title ? query.title : 'untitled',
+                            mimetype: 'application/json',
+                            extension: 'json',
+                            datapath: fpath
+                        }
+                        DB.insert(meta, (err, newDoc) => {
+                            if (err) return rej(err)
+                            console.log("the new doc is", newDoc)
+                            return res(newDoc)
+                        })
+                    }
                 })
             })
         })
@@ -206,6 +253,16 @@ function startServer(options) {
     })
     app.post('/docs/:username/upload/',allowed, (req,res) => {
         console.log("doing an upload",req.query, req.body)
+        // console.log("type is",req.headers)
+        if(req.headers['content-type'].startsWith('multipart')) {
+            console.log("it's multipart")
+            new formidable.IncomingForm().parse(req, (err,fields,files)=>{
+                req.body = fields
+                if(!files.file) return res.json({success:false,message:"upload file should use multipart with a file named file"})
+                saveDoc(req.user.username,req.query,{},files.file).then(doc => res.json({success:true,doc}))
+            })
+            return
+        }
         saveDoc(req.user.username,req.query,req.body).then(doc => res.json({success:true,doc}))
     })
     app.get('/docs/:username/data/:docid/latest/:mtype/:msubtype/:filename', (req,res)=>{
@@ -219,6 +276,12 @@ function startServer(options) {
             console.log('setting hte type to',type)
             if(doc.mimetype) res.set('Content-Type',doc.mimetype)
             res.sendFile(pth)
+        })
+    })
+    app.get('/docs/:username/info/:docid/:version',(req,res) => {
+        loadDoc(req.params.username,req.params.docid).then(doc => {
+            console.log("got the doc",doc)
+            res.json({doc:doc})
         })
     })
 

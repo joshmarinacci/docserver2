@@ -157,14 +157,13 @@ async function doit() {
         .expect('Content-Type', /json/)
         .expect(200)
         .then(res => {
-            console.log("trying to get",res.body)
             assert(res.body.foo === 'bar')
         })
         .then(()=>pass("verify data test"))
 
 
     //modify json doc payload and upload. should create a new version. old version is deleted. existing metadata is the same
-    await request(app).post(`/user1/upload/?id=${docid}&title=newtitle`)
+    await request(app).post(`/docs/user1/upload/?id=${docid}&title=newtitle`)
         .set('access-key',accessKey)
         .send({foo:"baz"})
         .expect('Content-Type', /json/)
@@ -173,33 +172,35 @@ async function doit() {
             assert(res.body.doc.title === 'newtitle')
         })
         .then(()=>pass("make doc test"))
+
     //check json doc payload is correct
-    await request(app).get(`/user1/data/${docid}/latest/application/json/data.json`)
+    await request(app).get(`/docs/user1/data/${docid}/latest/application/json/data.json`)
         .set('access-key',accessKey)
         .expect('Content-Type', /json/)
         .expect(200)
         .then(res => {
-            assert(res.foo === 'baz')
+            console.log("new body",res.body)
+            assert(res.body.foo === 'baz')
         })
         .then(()=>pass("verify data update test"))
 
     //check json metadata is correct
-    await request(app).get(`/user1/info/${docid}/latest/application/json/data.json`)
+    await request(app).get(`/docs/user1/info/${docid}/latest/`)
         .set('access-key',accessKey)
         .expect('Content-Type', /json/)
         .expect(200)
         .then(res => {
             assert(res.body.doc.title === 'newtitle')
-            assert(res.body.doc.id === docid)
+            assert(res.body.doc._id === docid)
             assert(res.body.doc.type === 'json')
         })
         .then(()=>pass("verify metadata test"))
 
 
     //create png and upload
-    await request(app).post(`/user1/upload/?&title=testpng&filename=test.png&mimetype=image/png`)
+    await request(app).post(`/docs/user1/upload/?&title=testpng&filename=test.png&mimetype=image/png`)
         .set('access-key',accessKey)
-        .sendFile("./test.png")
+        .attach('file','./test.png')
         .expect('Content-Type', /json/)
         .expect(200)
         .then(res => {
@@ -208,9 +209,19 @@ async function doit() {
         })
         .then(()=>pass("make doc test"))
 
-//list all docs, should list png
-//list all png, should list png
-//list all jpg, should not list png
+    //list all docs, should list png
+    await search("mimetype=image/png").then(res => {
+        console.log("results is",res.body)
+        assert(res.body.results.length === 1)
+        assert(res.body.results.filter(d => d.mimetype==='image/png').length === 1)
+    }).then(()=>pass("mimetype search test"))
+
+    //list all jpg, should not list png
+    await search("mimetype=image/jpeg").then(res => {
+        console.log("results is",res.body)
+        assert(res.body.results.length === 0)
+        assert(res.body.results.filter(d => d.mimetype==='image/png').length === 0)
+    }).then(()=>pass("mimetype search test"))
 
 //download png with an alternative name
 //download png with an alternative mimetype
