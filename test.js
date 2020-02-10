@@ -36,6 +36,9 @@ async function rmdir(dir) {
         console.log("error deleting. ignore",e)
     }
 }
+function pass(msg) {
+    console.log("   PASSED:",msg)
+}
 
 async function doit() {
 
@@ -52,19 +55,19 @@ async function doit() {
     })
 
     //get server info. proves we can connect
-    await request(app).get('/info')
-        .expect('Content-Type', /json/)
-        .expect(200)
-        .then(res => {
-            assert(res.body.authentication, 'auth is not-supported')
-        })
+    // await request(app).get('/info')
+    //     .expect('Content-Type', /json/)
+    //     .expect(200)
+    //     .then(res => {
+    //         assert(res.body.authentication, 'auth is not-supported')
+    //     })
 
     //login with test account, user 1
-    const accessKey = await request(app).post(`/auth/testlogin/user1`)
+    const accessKey = await request(app).post(`/auth/test/user1`)
         .expect('Content-Type', /json/)
         .expect(200)
         .then(res => {
-            // console.log("tried to log in",res.body)
+            console.log("tried to log in",res.body)
             assert(res.body['access-key'])
             return res.body['access-key']
         })
@@ -72,7 +75,7 @@ async function doit() {
     console.log(`using the user1 login key of '${accessKey}'`)
 
     //list docs. should be empty
-    await request(app).get(`/user1/search?`)
+    await request(app).get(`/docs/user1/search?`)
         .set('access-key',accessKey)
         .expect('Content-Type', /json/)
         .expect(200)
@@ -85,7 +88,7 @@ async function doit() {
 
     //create JSON doc payload and upload
     await request(app)
-        .post(`/user1/upload/?type=json&title=my%20json%20doc`)
+        .post(`/docs/user1/upload/?type=json&title=my%20json%20doc`)
         .set('access-key',accessKey)
         .send({foo:"bar"})
         .expect('Content-Type', /json/)
