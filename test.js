@@ -1,3 +1,41 @@
+const request = require('supertest')
+const server = require('./server')
+const assert = require('assert')
+const fs = require('fs')
+const path = require('path')
+
+function mkdir(fname) {
+    return new Promise((res,rej)=>{
+        fs.exists(fname,(exists)=> {
+            if(exists) return res()
+            fs.mkdir(fname, (err, ans) => {
+                if (err) return rej(err)
+                res()
+            })
+        })
+    })
+}
+
+async function rmdir(dir) {
+    try {
+        const info = await fs.promises.stat(dir)
+        if (info.isDirectory()) {
+            const list = await fs.promises.readdir(dir)
+            if (list.length === 0) {
+                console.log(`deleting ${dir}`)
+                return fs.promises.rmdir(dir)
+            } else {
+                const proms = list.map(name => rmdir(path.join(dir, name)))
+                return Promise.all(proms)
+            }
+        }
+
+        console.log(`deleting ${dir}`)
+        await fs.promises.unlink(dir)
+    } catch (e) {
+        console.log("error deleting. ignore",e)
+    }
+}
 
 async function doit() {
 
@@ -8,7 +46,9 @@ async function doit() {
     await mkdir('testdir/meta')
     const app = server.startServer({
         DIR:"testdir",
-        TEST_AUTH: true
+        TEST_AUTH: true,
+        USERS:['user1'],
+        PORT:3000
     })
 
     //get server info. proves we can connect
