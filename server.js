@@ -83,6 +83,25 @@ function startServer(options) {
         })
     }
 
+    function findDoc(username, query) {
+        return new Promise((res,rej)=>{
+            DB.find(query,(err,docs)=>{
+                if(err) return rej(err)
+                return res(docs)
+            })
+        })
+    }
+
+    function loadDoc(username, id) {
+        return new Promise((res,rej)=>{
+            DB.find({_id:id}, (err,docs)=>{
+                if(err) return rej(err)
+                if(docs.length !== 1) return rej({message:'doc not found'})
+                return res(docs[0])
+            })
+        })
+    }
+
     // let options = setupOptions()
     const app = express()
     app.use(bodyParser.json({limit:'20MB'}))
@@ -178,12 +197,29 @@ function startServer(options) {
         console.log("current user is",req.user)
         console.log("username is",req.params.username)
         if(req.user.username !== req.params.username) return res.json({success:false, message:"incorrect user"})
-        console.log("searching")
-        res.json({success:true,results:[]})
+        console.log("searching. query  is",req.query)
+        const query = {}
+        if(req.query.type) query.type = req.query.type
+        if(req.query.mimetype) query.mimetype = req.query.mimetype
+
+        findDoc(req.username,query).then(docs => res.json({success:true, results:docs}))
     })
     app.post('/docs/:username/upload/',allowed, (req,res) => {
         console.log("doing an upload",req.query, req.body)
-        saveDoc(req.user.username,req.query,req.body).then(doc => res.json(doc))
+        saveDoc(req.user.username,req.query,req.body).then(doc => res.json({success:true,doc}))
+    })
+    app.get('/docs/:username/data/:docid/latest/:mtype/:msubtype/:filename', (req,res)=>{
+        console.log("fetching the doc")
+        const docid = req.params.docid
+        console.log("using the docid",docid)
+        loadDoc(req.params.username,docid).then(doc => {
+            const pth = path.resolve(doc.datapath)
+            console.log("retrieved the doc",doc,pth)
+            const type = 'application/json'
+            console.log('setting hte type to',type)
+            if(doc.mimetype) res.set('Content-Type',doc.mimetype)
+            res.sendFile(pth)
+        })
     })
 
 

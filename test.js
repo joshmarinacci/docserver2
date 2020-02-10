@@ -86,6 +86,8 @@ async function doit() {
         .then(()=>pass("empty query test"))
 
 
+
+
     //create JSON doc payload and upload
     await request(app)
         .post(`/docs/user1/upload/?type=json&title=my%20json%20doc`)
@@ -95,70 +97,70 @@ async function doit() {
         .expect(200)
         .then(res => {
             console.log("return is",res.body)
-            assert(res.body.doc.type === 'test')
+            assert(res.body.doc.type === 'json')
             assert(res.body.doc.title === 'my json doc')
         })
         .then(()=>pass("make doc test"))
+
+    function search(queryString) {
+        return request(app)
+            .get(`/docs/user1/search?${queryString}`)
+            .set('access-key',accessKey)
+            .expect('Content-Type', /json/)
+            .expect(200)
+            .then(res =>{
+                assert(res.body.success===true)
+                return res
+            })
+
+    }
+
     //list all docs, should include a json doc w/ new id
-    await request(app).get(`/user1/search?`)
-        .set('access-key',accessKey)
-        .expect('Content-Type', /json/)
-        .expect(200)
-        .then(res => {
-            assert(res.body.success===true)
+    await search('').then(res => {
             assert(res.body.results.length === 1)
-            assert(res.body.results.filter(d => d.type==='json').length === 0)
-        })
-        .then(()=>pass("all doc search test"))
+            assert(res.body.results.filter(d => d.type==='json').length === 1)
+        }).then(()=>pass("all doc search test"))
+
     //list all docs by type of json doc
-    await request(app).get(`/user1/search?type=json`)
-        .set('access-key',accessKey)
-        .expect('Content-Type', /json/)
-        .expect(200)
-        .then(res => {
-            assert(res.body.success===true)
+    await search('type=json').then(res => {
             assert(res.body.results.length === 1)
             assert(res.body.results.filter(d => d.type==='json').length === 1)
-        })
-        .then(()=>pass("type search test"))
+        }).then(()=>pass("type json search test"))
+
+    //list all docs by type of png doc, should be empty
+    await search('type=png').then(res => {
+            assert(res.body.results.length === 0)
+        }).then(()=>pass("type png search test"))
+
     //list all docs by mime-type of application/json
-    await request(app).get(`/user1/search?mimetype=application/json`)
-        .set('access-key',accessKey)
-        .expect('Content-Type', /json/)
-        .expect(200)
-        .then(res => {
-            assert(res.body.success===true)
+    await search(`mimetype=application/json`).then(res => {
             assert(res.body.results.length === 1)
             assert(res.body.results.filter(d => d.type==='json').length === 1)
-        })
-        .then(()=>pass("mimetype search test"))
+        }).then(()=>pass("mimetype search test"))
 
 
     //list all docs by extension .json
     let docid = 0
-    await request(app).get(`/user1/search?extension=.json`)
-        .set('access-key',accessKey)
-        .expect('Content-Type', /json/)
-        .expect(200)
-        .then(res => {
-            assert(res.body.success===true)
+    await search('extension=json').then(res => {
             assert(res.body.results.length === 1)
             const docs = res.body.results.filter(d => d.type==='json')
             assert(docs.length === 1)
             const doc = docs[0]
-            docid = doc.id
-        })
-        .then(()=>pass("extension search test"))
+            docid = doc._id
+        }).then(()=>pass("extension search test"))
 
+
+    console.log("using the docid",docid)
     //verify payload of json doc
-    await request(app).get(`/user1/data/${docid}/latest/application/json/data.json`)
+    await request(app).get(`/docs/user1/data/${docid}/latest/application/json/data.json`)
         .set('access-key',accessKey)
         .expect('Content-Type', /json/)
         .expect(200)
         .then(res => {
-            assert(res.foo === 'bar')
+            console.log("trying to get",res.body)
+            assert(res.body.foo === 'bar')
         })
-        .then(()=>pass("verify data teset"))
+        .then(()=>pass("verify data test"))
 
 
     //modify json doc payload and upload. should create a new version. old version is deleted. existing metadata is the same
