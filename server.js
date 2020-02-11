@@ -58,12 +58,15 @@ function startServer(options) {
             const fid = "data"+Math.floor(Math.random()*10*1000*1000)
             const fpath = path.join(options.DIR,'data',username,fid)
             const fdir = path.join(options.DIR,'data',username)
+            const fdir0 = path.join(options.DIR,'data')
 
 
 
             console.log("writing to disk as",fpath)
             let data = JSON.stringify(body)
-            mkdir(fdir).then(()=>{
+            mkdir(fdir0)
+                .then(()=> mkdir(fdir))
+                .then(()=>{
                 if(file) {
                     console.log("uploading a file, actually",file)
                     const fname = query.filename?query.filename:file.name
@@ -241,7 +244,7 @@ function startServer(options) {
         (req,res)=> res.send(authTemplate(req)))
 
     app.get('/docs/:username/search', allowed, (req,res)=>{
-        console.log("current user is",req.user)
+        console.log("current user is: ",req.user?req.user.username:"no user")
         console.log("username is",req.params.username)
         if(req.user.username !== req.params.username) return res.json({success:false, message:"incorrect user"})
         console.log("searching. query  is",req.query)
