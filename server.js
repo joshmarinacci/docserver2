@@ -164,7 +164,7 @@ function startServer(options) {
             callbackURL: options.GITHUB_CALLBACK_URL
         }, function (accessToken, refreshToken, profile, done) {
             console.log("github strategy callback", accessToken)
-            if (options.ALLOWED_USERS.indexOf(profile.username) < 0) return
+            if (options.ALLOWED_USERS.indexOf(profile.username) < 0) return console.log(`username ${profile.username} not in allowed users`)
             USERS[accessToken] = profile
             done(null, {username: profile.username, accessToken: accessToken})
         }))
