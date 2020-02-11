@@ -251,6 +251,7 @@ function startServer(options) {
         const query = {}
         if(req.query.type) query.type = req.query.type
         if(req.query.mimetype) query.mimetype = req.query.mimetype
+        if(req.query.title) query.title = req.query.title
 
         findDoc(req.username,query).then(docs => res.json({success:true, results:docs}))
     })
