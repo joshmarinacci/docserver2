@@ -142,6 +142,17 @@ function startServer(options) {
         })
     }
 
+    function deleteDocs(username, query) {
+        query.username = username
+        return new Promise((res,rej) => {
+            DB.remove(query, {multi:true}, (err, count) => {
+                if (err) return rej(err)
+                console.log("deleted docs",count)
+                return res(count)
+            })
+        })
+    }
+
     function loadDoc(username, id) {
         return new Promise((res,rej)=>{
             DB.find({_id:id}, (err,docs)=>{
@@ -242,6 +253,12 @@ function startServer(options) {
     app.get('/auth/github',  passport.authenticate('github'))
     app.get('/auth/github/callback', passport.authenticate('github',{failureRedirect:'/login'}),
         (req,res)=> res.send(authTemplate(req)))
+
+    app.post('/docs/:username/delete/',allowed,(req,res)=>{
+        console.log("deleting docs with query",req.query)
+        deleteDocs(req.user.username,req.query)
+            .then(docs => res.json({success:true, docs:docs}))
+    })
 
     app.get('/docs/:username/search', allowed, (req,res)=>{
         console.log("current user is: ",req.user?req.user.username:"no user")
