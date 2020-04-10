@@ -51,4 +51,29 @@ To retrieve the actual document call:
 The `mimetype`, `subtype`, and `filename` are currently unused. The file
 will be returned using the mimetype the document was saved with.
 
+# configuration
 
+You can run it from the command line with the start.js file and node. Config can be provided
+by environment variables or from a `.env` file on disk.  The variable you probably want to configure are:
+
+for github auth config
+
+```shell script
+GITHUB_CLIENT_ID=github client id
+GITHUB_CLIENT_SECRET=github client secret
+GITHUB_CALLBACK_URL=github callback url
+ALLOWED_USERS=[array,of,usernames]
+```
+
+for server setup:
+
+```shell script
+DIR=dir_to_load_files_from
+AUTH_ENABLED=true  // on by default
+PORT=3000 // port to run on
+```
+
+# implementation
+
+docserver2 uses nedb internally, which is a pure JSON database. Files are stored on disk in a target directory,
+in username subdirs, and with generated filenames. User provided filenames are saved but never used on disk.
