@@ -63,7 +63,7 @@ async function doit() {
     //     })
 
     //login with test account, user 1
-    const accessKey = await request(app).post(`/auth/test/user1`)
+    let accessKey = await request(app).post(`/auth/test/user1`)
         .expect('Content-Type', /json/)
         .expect(200)
         .then(res => {
@@ -223,6 +223,31 @@ async function doit() {
         assert(res.body.results.filter(d => d.mimetype==='image/png').length === 0)
     }).then(()=>pass("mimetype search test"))
 
+
+    //login as a different user
+    //login with test account, user 1
+    accessKey = await request(app).post(`/auth/test/user2`)
+        .expect('Content-Type', /json/)
+        .expect(200)
+        .then(res => {
+            console.log("tried to log in",res.body)
+            assert(res.body['access-key'])
+            return res.body['access-key']
+        })
+
+    console.log(`using the user2 login key of '${accessKey}'`)
+
+    //list docs. should not have any user1 docs so should be empty
+    await request(app).get(`/docs/user2/search?`)
+        .set('access-key',accessKey)
+        .expect('Content-Type', /json/)
+        .expect(200)
+        .then(res => {
+            console.log("the res is",res.body)
+            assert(res.body.success===true)
+            assert(res.body.results.length === 0)
+        })
+        .then(()=>pass("empty query test"))
 //download png with an alternative name
 //download png with an alternative mimetype
 //download png with an alternative extension
