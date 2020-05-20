@@ -241,6 +241,7 @@ function startServer(options) {
         if(req.user.username !== req.params.username) return res.json({success:false, message:"incorrect user"})
         console.log("searching. query  is",req.query)
         const query = {}
+        query.username = req.user.username
         if(req.query.type) query.type = req.query.type
         if(req.query.mimetype) query.mimetype = req.query.mimetype
         if(req.query.title) query.title = req.query.title
