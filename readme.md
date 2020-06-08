@@ -26,6 +26,28 @@ You can optionally specify an id to use. If no id is specified the server
 will create a new ID for the document.  This id will be returned
 in the result from the JSON call.
 
+# thumbnails
+
+documents may be saved with thumbnails. POST the thumbnail image to
+```
+docs/myusername/thumbnail/docid/version/mimetype/subtype/filename  
+```
+for example, you could post a PNG image to
+
+```
+docs/mysername/thumbnail/docid123/latest/image/png/myimage.png
+```
+
+retrieve the thumbnail  with GET
+ 
+```
+docs/myusername/thumbnail/docid/version/mimetype/subtype/filename
+```
+
+When posting a thumbnail the doc metadata will be updated to reflect
+the new thumbnail. So retriving the doc info will now show a thumbnail
+URL as well.
+
 
 # Get document
 
@@ -72,6 +94,7 @@ DIR=dir_to_load_files_from
 AUTH_ENABLED=true  // on by default
 PORT=3000 // port to run on
 ```
+
 
 # implementation
 
