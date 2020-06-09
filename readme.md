@@ -30,23 +30,45 @@ in the result from the JSON call.
 
 documents may be saved with thumbnails. POST the thumbnail image to
 ```
-docs/myusername/thumbnail/docid/version/mimetype/subtype/filename  
+docs/myusername/thumbnail/docid/version/mimetype/subtype/widthxheight/filename  
 ```
 for example, you could post a PNG image to
 
 ```
-docs/mysername/thumbnail/docid123/latest/image/png/myimage.png
+docs/mysername/thumbnail/docid123/latest/image/png/100x300/thumbnail.png
 ```
 
-retrieve the thumbnail  with GET
+retrieve the thumbnail with GET
  
 ```
-docs/myusername/thumbnail/docid/version/mimetype/subtype/filename
+docs/myusername/thumbnail/docid/version/mimetype/subtype/widthxheight/thumbnail.png
 ```
 
+A documenet can have multiple thumbnails. They are identifed uniquely by the document id
+and the width and height and mimetype of the thumbnail.
+
 When posting a thumbnail the doc metadata will be updated to reflect
-the new thumbnail. So retriving the doc info will now show a thumbnail
-URL as well.
+the new thumbnail. So retrieving the doc info will now show the thumbnail
+URLs as well.
+
+```json
+{
+    "username": "user1",
+    "type": "json",
+    "title": "my doc title",
+    "mimetype":"application/json",
+    "extension": "json",
+    "datapath":"testdir/data/user1/data4345",
+    "thumbnails": [
+      {
+        "width": 300,
+        "height": 100,
+        "mimetype":"image/png",
+        "href": "testdir/data/user1/data4345/latest/image/png/300x100/thumbnail.png"
+      }
+    ]
+}
+```
 
 
 # Get document

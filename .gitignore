@@ -105,7 +105,5 @@ dist
 # TernJS port file
 .tern-port
 
-testdir/*
-testdir/data/*
-testdir/data/user*
+testdir/
 foo

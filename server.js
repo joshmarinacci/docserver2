@@ -26,6 +26,48 @@ function startServer(options) {
     const DB_FILE = path.join(options.DIR,'database.db')
     const DB = new NEDB({filename: DB_FILE, autoload:true})
 
+    async function saveThumbnail(username, params, file) {
+        // console.log("saving ", username, params, file)
+        const fid = "thumbnail" + Math.floor(Math.random() * 10 * 1000 * 1000)
+        const fpath = path.join(options.DIR, 'thumbnails', username, fid)
+        // console.log("making")
+        await mkdir(path.join(options.DIR, 'thumbnails'))
+        await mkdir(path.join(options.DIR, 'thumbnails', username))
+        // console.log("writing thumbnail to disk as", fpath)
+        await fs.promises.rename(file.path, fpath)
+        console.log("done saving thumbnail")
+
+        // console.log("updating metadata")
+        return new Promise((res, rej) => {
+            DB.update(
+                //query
+                {
+                    _id: params.docid,
+                    username: params.username
+                },
+                //fields to update
+                {
+                    $push: {
+                        thumbnails:[
+                            {
+                                width:parseInt(params.width),
+                                height:parseInt(params.height),
+                                mimetype:`${params.mtype}/${params.msubtype}`,
+                                src:`docs/${username}/thumbnail/${params.docid}/version/${params.mtype}/${params.msubtype}/${params.width}/${params.height}/thumbnail.jpg`,
+                            }
+                        ]
+                    }
+                },
+                {returnUpdatedDocs: true},//options
+                (err, num, doc) => {
+                    if (err) return rej(err)
+                    console.log("the updated doc is", doc)
+                    return res(doc)
+                })
+        })
+    }
+
+
     function saveDoc(username, query, body, file) {
         return new Promise((res,rej)=>{
             console.log("saving the doc",body,'using query',query,'username',username)
@@ -280,6 +322,24 @@ function startServer(options) {
             console.log("got the doc",doc)
             res.json({doc:doc})
         })
+    })
+
+    // upload a thumbnail
+    app.post('/docs/:username/thumbnail/:docid/:version/:mtype/:msubtype/:width/:height/:filename',allowed,(req,res) => {
+        console.log("doing a thumbnail upload", req.params)
+        if(req.headers['content-type'].startsWith('multipart')) {
+            // console.log("it's multipart")
+            new formidable.IncomingForm().parse(req, (err,fields,files)=>{
+                req.body = fields
+                // console.log("files?",files,fields)
+                if(!files.thumbnail) return res.json({success:false,message:"upload file should use multipart with a file named thumbnail"})
+                saveThumbnail(req.user.username,req.params,files.thumbnail)
+                    .then(doc => res.json({success:true,doc}))
+            })
+        } else {
+            console.log("no image attached")
+            return res.status(400).json({status:'error', message:'no image attached to upload'})
+        }
     })
 
 
