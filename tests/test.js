@@ -1,5 +1,5 @@
 const request = require('supertest')
-const server = require('./server')
+const server = require('../server.js')
 const assert = require('assert')
 const fs = require('fs')
 const path = require('path')
@@ -40,13 +40,49 @@ function pass(msg) {
     console.log("   PASSED:",msg)
 }
 
-async function doit() {
-
+async function make_clean() {
     //start server with testing turned on in a test dir
     await rmdir('testdir')
     await mkdir('testdir')
     await mkdir('testdir/data')
     await mkdir('testdir/meta')
+}
+
+async function login_as_user(app,user1) {
+    return await request(app).post(`/auth/test/${user1}`)
+        .expect('Content-Type', /json/)
+        .expect(200)
+        .then(res => {
+            console.log("tried to log in",res.body)
+            assert(res.body['access-key'])
+            return res.body['access-key']
+        })
+}
+
+async function upload_doc_obj(app, user, accessKey, params, data_obj) {
+    let query = Object.keys(params).map(key => {
+        let value = params[key]
+        value = value.replace(/ /g,'%20')
+        return `${key}=${value}`
+    }).join("&")
+    return await request(app)
+        .post(`/docs/${user}/upload/?${query}`)
+        .set('access-key',accessKey)
+        .send(data_obj)
+        .expect('Content-Type', /json/)
+        .expect(200)
+}
+
+async function get_info_by_id(app, user, accessKey, docid) {
+    //check json metadata is correct
+    return await request(app).get(`/docs/${user}/info/${docid}/latest/`)
+        .set('access-key',accessKey)
+        .expect('Content-Type', /json/)
+        .expect(200)
+}
+
+async function doit() {
+    await make_clean()
     const app = server.startServer({
         DIR:"testdir",
         TEST_AUTH: true,
@@ -63,44 +99,25 @@ async function doit() {
     //     })
 
     //login with test account, user 1
-    let accessKey = await request(app).post(`/auth/test/user1`)
-        .expect('Content-Type', /json/)
-        .expect(200)
-        .then(res => {
-            console.log("tried to log in",res.body)
-            assert(res.body['access-key'])
-            return res.body['access-key']
-        })
-
+    let accessKey = await login_as_user(app,'user1')
     console.log(`using the user1 login key of '${accessKey}'`)
 
     //list docs. should be empty
-    await request(app).get(`/docs/user1/search?`)
-        .set('access-key',accessKey)
-        .expect('Content-Type', /json/)
-        .expect(200)
-        .then(res => {
-            assert(res.body.success===true)
-            assert(res.body.results.length === 0)
-        })
-        .then(()=>pass("empty query test"))
+    let docs = await fetch_all_docs(app, 'user1', accessKey)
+    assert(docs.length === 0)
+    pass("empty query test")
 
-
-
+    let res = null;
 
     //create JSON doc payload and upload
-    await request(app)
-        .post(`/docs/user1/upload/?type=json&title=my%20json%20doc`)
-        .set('access-key',accessKey)
-        .send({foo:"bar"})
-        .expect('Content-Type', /json/)
-        .expect(200)
-        .then(res => {
-            console.log("return is",res.body)
-            assert(res.body.doc.type === 'json')
-            assert(res.body.doc.title === 'my json doc')
-        })
-        .then(()=>pass("make doc test"))
+    res = await upload_doc_obj(app,'user1',accessKey,
+        {type:'json',title:'my json doc'},
+        {foo:'bar'}
+        )
+    console.log("return is",res.body)
+    assert(res.body.doc.type === 'json')
+    assert(res.body.doc.title === 'my json doc')
+    pass("make doc test")
 
     function search(queryString) {
         return request(app)
@@ -152,55 +169,33 @@ async function doit() {
 
     console.log("using the docid",docid)
     //verify payload of json doc
-    await request(app).get(`/docs/user1/data/${docid}/latest/application/json/data.json`)
-        .set('access-key',accessKey)
-        .expect('Content-Type', /json/)
-        .expect(200)
-        .then(res => {
-            assert(res.body.foo === 'bar')
-        })
-        .then(()=>pass("verify data test"))
+    let json_doc = await get_doc_by_id(app, 'user1', accessKey, docid)
+    assert(json_doc.body.foo === 'bar')
+    pass("verify data test")
 
-
-    //modify json doc payload and upload. should create a new version. old version is deleted. existing metadata is the same
-    await request(app).post(`/docs/user1/upload/?id=${docid}&title=newtitle`)
-        .set('access-key',accessKey)
-        .send({foo:"baz"})
-        .expect('Content-Type', /json/)
-        .expect(200)
-        .then(res => {
-            assert(res.body.doc.title === 'newtitle')
-        })
-        .then(()=>pass("make doc test"))
+    // modify json doc payload and upload. should create a new version.
+    // old version is deleted. existing metadata is the same
+    res = await upload_doc_obj(app, 'user1',accessKey,
+        {id:docid,title:'newtitle'},{foo:'baz'})
+    assert(res.body.doc.title === 'newtitle')
+    pass("make doc test")
 
     //check json doc payload is correct
-    await request(app).get(`/docs/user1/data/${docid}/latest/application/json/data.json`)
-        .set('access-key',accessKey)
-        .expect('Content-Type', /json/)
-        .expect(200)
-        .then(res => {
-            console.log("new body",res.body)
-            assert(res.body.foo === 'baz')
-        })
-        .then(()=>pass("verify data update test"))
+    json_doc = await get_doc_by_id(app, 'user1', accessKey, docid)
+    assert(json_doc.body.foo === 'baz')
+    pass("verify data update test")
 
-    //check json metadata is correct
-    await request(app).get(`/docs/user1/info/${docid}/latest/`)
-        .set('access-key',accessKey)
-        .expect('Content-Type', /json/)
-        .expect(200)
-        .then(res => {
-            assert(res.body.doc.title === 'newtitle')
-            assert(res.body.doc._id === docid)
-            assert(res.body.doc.type === 'json')
-        })
-        .then(()=>pass("verify metadata test"))
+    let info = await get_info_by_id(app, 'user1', accessKey, docid)
+    assert(info.body.doc.title === 'newtitle')
+    assert(info.body.doc._id === docid)
+    assert(info.body.doc.type === 'json')
+    pass("verify metadata test")
 
 
     //create png and upload
     await request(app).post(`/docs/user1/upload/?&title=testpng&filename=test.png&mimetype=image/png`)
         .set('access-key',accessKey)
-        .attach('file','./test.png')
+        .attach('file','./tests/test.png')
         .expect('Content-Type', /json/)
         .expect(200)
         .then(res => {
@@ -259,9 +254,75 @@ async function doit() {
 
 }
 
+async function fetch_all_docs(app, user1, accessKey) {
+    return await request(app).get(`/docs/${user1}/search?`)
+        .set('access-key',accessKey)
+        .expect('Content-Type', /json/)
+        .expect(200)
+        .then(res => {
+            assert(res.body.success===true)
+            return res.body.results
+        })
+}
 
-doit().then(()=>{
+async function get_doc_by_id(app, user, accessKey, docid) {
+    return await request(app).get(`/docs/${user}/data/${docid}/latest/application/json/data.json`)
+        .set('access-key',accessKey)
+        .expect('Content-Type', /json/)
+        .expect(200)
+}
+
+async function test_thumbnails() {
+    await make_clean()
+
+    // start with standard user1
+    const app = server.startServer({
+        DIR:"testdir",
+        TEST_AUTH: true,
+        USERS:['user1'],
+        PORT:3000
+    })
+
+    // login as user1
+    let accessKey = await login_as_user(app,'user1')
+    console.log(`using the user1 login key of '${accessKey}'`)
+
+    // get list of docs, assert it is empty
+    let docs = await fetch_all_docs(app, 'user1', accessKey)
+    assert(docs.length === 0)
+
+    // upload a doc
+    let res = await upload_doc_obj(app, 'user1', accessKey,
+        {type:'json',title:'my_json'},
+        {foo:'bar'})
+    let docid = res.body.doc._id
+    console.log("docid ",docid)
+
+    // fetch the doc info, confirm no thumbnails
+    res = await get_info_by_id(app, 'user1', accessKey, docid)
+    assert(res.thumbnails === undefined)
+    console.log("info is",res.body)
+
+    // attach a thumbnail to the doc
+    // await upload_thumbnail(app, 'user1', accessKey, 'tests/thumb1.png')
+    res = await upload_doc_file(app, 'user1',accessKey, {}, 'tests/thumb1.png')
+
+
+    // fetch the doc info, confirm one thumbnail
+    // attach a second thumbnail (same, but different size)
+    // fetch the doc info, confirm two thumbnails w/ correct data
+    // update first thumbnail
+    // fetch the doc info, confirm updated
+    // fetch thumbnail from doc info, confirm it is valid
+}
+
+// doit().then(()=>{
+//     console.log("done with the tests")
+//     process.exit(0)
+// })
+test_thumbnails().then(()=>{
     console.log("done with the tests")
+    process.exit(0)
 })
 
 
