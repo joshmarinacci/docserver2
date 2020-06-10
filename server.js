@@ -54,6 +54,7 @@ function startServer(options) {
                                 height:parseInt(params.height),
                                 mimetype:`${params.mtype}/${params.msubtype}`,
                                 src:`docs/${username}/thumbnail/${params.docid}/version/${params.mtype}/${params.msubtype}/${params.width}/${params.height}/thumbnail.jpg`,
+                                fid:fid,
                             }
                         ]
                     }
@@ -340,6 +341,25 @@ function startServer(options) {
             console.log("no image attached")
             return res.status(400).json({status:'error', message:'no image attached to upload'})
         }
+    })
+
+    app.get('/docs/:username/thumbnail/:docid/:version/:mtype/:msubtype/:width/:height/:filename',(req,res)=>{
+        console.log("returning a thumbnail",req.params)
+        // let fpath = path.join(options.DIR,'thumbnails',req.params.username)
+        // const pth = path.resolve()
+        loadDoc(req.params.username,req.params.docid).then(doc => {
+            console.log("found the doc",doc)
+            let thumb = doc.thumbnails.find((t => t.width === parseInt(req.params.width)))
+            console.log("going to return the thumb")
+            let tpath = path.join('thumbnails',fid)
+            console.log("tpath is",tpath)
+            let pth = path.resolve(tpath)
+            console.log("pth is",pth)
+            res.set('Content-Type',thumb.mimetype)
+            res.sendFile(pth)
+        }).catch(e => {})
+        console.log("big error",e)
+        return res.status(400).json({status:'error', message:'error loading the thumbnail requested'})
     })
 
 
