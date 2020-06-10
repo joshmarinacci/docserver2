@@ -26,8 +26,8 @@ function startServer(options) {
     const DB_FILE = path.join(options.DIR,'database.db')
     const DB = new NEDB({filename: DB_FILE, autoload:true})
 
-    async function saveThumbnail(username, params, file) {
-        // console.log("saving ", username, params, file)
+    async function saveThumbnail(username, params, doc, file) {
+        console.log("saving ", params, "to the doc",doc)
         const fid = "thumbnail" + Math.floor(Math.random() * 10 * 1000 * 1000)
         const fpath = path.join(options.DIR, 'thumbnails', username, fid)
         // console.log("making")
@@ -37,7 +37,30 @@ function startServer(options) {
         await fs.promises.copyFile(file.path, fpath)
         // console.log("done saving thumbnail")
 
-        // console.log("updating metadata")
+        let width = parseInt(params.width)
+        let height = parseInt(params.height)
+        let new_thumbnails = doc.thumbnails?doc.thumbnails.slice():[]
+        let found = false
+        let new_thumb = {
+            width:width,
+            height:height,
+            mimetype:`${params.mtype}/${params.msubtype}`,
+            src:`/docs/${username}/thumbnail/${params.docid}/version/${params.mtype}/${params.msubtype}/${params.width}/${params.height}/thumbnail.jpg`,
+            fid:fid,
+        }
+        for(let i=0; i<new_thumbnails.length; i++) {
+            let thumb = new_thumbnails[i]
+            if(thumb.width === new_thumb.width && thumb.height === new_thumb.height) {
+                found = true
+                new_thumbnails[i] = new_thumb
+                console.log("replaced")
+            }
+        }
+        if(!found) {
+            new_thumbnails.push(new_thumb)
+            console.log('added')
+        }
+        console.log("updating metadata")
         return new Promise((res, rej) => {
             DB.update(
                 //query
@@ -47,16 +70,8 @@ function startServer(options) {
                 },
                 //fields to update
                 {
-                    $push: {
-                        thumbnails:
-                            {
-                                width:parseInt(params.width),
-                                height:parseInt(params.height),
-                                mimetype:`${params.mtype}/${params.msubtype}`,
-                                src:`/docs/${username}/thumbnail/${params.docid}/version/${params.mtype}/${params.msubtype}/${params.width}/${params.height}/thumbnail.jpg`,
-                                fid:fid,
-                            }
-
+                    $set: {
+                        thumbnails: new_thumbnails,
                     }
                 },
                 {returnUpdatedDocs: true},//options
@@ -328,19 +343,21 @@ function startServer(options) {
     // upload a thumbnail
     app.post('/docs/:username/thumbnail/:docid/:version/:mtype/:msubtype/:width/:height/:filename',allowed,(req,res) => {
         // console.log("doing a thumbnail upload", req.params)
-        if(req.headers['content-type'].startsWith('multipart')) {
-            // console.log("it's multipart")
-            new formidable.IncomingForm().parse(req, (err,fields,files)=>{
-                req.body = fields
-                // console.log("files?",files,fields)
-                if(!files.thumbnail) return res.json({success:false,message:"upload file should use multipart with a file named thumbnail"})
-                saveThumbnail(req.user.username,req.params,files.thumbnail)
-                    .then(doc => res.json({success:true,doc}))
-            })
-        } else {
-            console.log("no image attached")
-            return res.status(400).json({status:'error', message:'no image attached to upload'})
-        }
+        loadDoc(req.params.username,req.params.docid).then(doc => {
+            if(req.headers['content-type'].startsWith('multipart')) {
+                // console.log("it's multipart")
+                new formidable.IncomingForm().parse(req, (err,fields,files)=>{
+                    req.body = fields
+                    // console.log("files?",files,fields)
+                    if(!files.thumbnail) return res.json({success:false,message:"upload file should use multipart with a file named thumbnail"})
+                    saveThumbnail(req.user.username,req.params,doc,files.thumbnail)
+                        .then(doc => res.json({success:true,doc}))
+                })
+            } else {
+                console.log("no image attached")
+                return res.status(400).json({status:'error', message:'no image attached to upload'})
+            }
+        })
     })
 
     app.get('/docs/:username/thumbnail/:docid/:version/:mtype/:msubtype/:width/:height/:filename',(req,res)=>{

@@ -352,18 +352,24 @@ async function test_thumbnails() {
     res = await get_info_by_id(app,'user1',accessKey, docid)
     assert(res.body.doc.thumbnails.length === 2)
 
-    res = await fetch_thumbnail_file(app, 'user1', accessKey, docid, res.body.doc.thumbnails[0])
-    console.log("resulting body is",res.body)
+    //fetch thumbnail 1
+    let thumb_old = await fetch_thumbnail_file(app, 'user1', accessKey, docid, res.body.doc.thumbnails[0])
+    console.log("resulting body is",thumb_old.body)
 
     // update first thumbnail
-    // await upload_thumbnail_file(app, 'user1', accessKey, 'tests/logo.300.altthumb1.png')
+    await upload_thumbnail_file(app, 'user1', accessKey, docid,'tests/logo.300.alt.jpg', 300, 225)
     // res = await upload_thumbnail_file(app, 'user1',accessKey, docid, 'tests/logo.300.jpg')
 
-    // fetch the doc info, confirm updated
-    // fetch the doc info, confirm two thumbnails w/ correct data
-    // res = await get_info_by_id(app,'user1',accessKey, docid)
-    // assert(res.thumbnails.length === 2)
+    // fetch the doc info, confirm two thumbnails still
+    res = await get_info_by_id(app,'user1',accessKey, docid)
+    console.log("now doc is",res.body.doc)
+    assert(res.body.doc.thumbnails.length === 2)
 
+    // fetch thumbnail 1, confirm it is different than thumbnail two
+    let thumb_new = await fetch_thumbnail_file(app, 'user1', accessKey, docid, res.body.doc.thumbnails[0])
+    console.log("resulting body is",thumb_new.body)
+
+    assert(thumb_old.body.length !== thumb_new.body.length)
     // fetch thumbnails from doc info, confirm they are valid
     // let img = fetch_thumbnail(res.thumbnails[0].src)
     // assert(img.width === 300)
