@@ -34,7 +34,7 @@ function startServer(options) {
         await mkdir(path.join(options.DIR, 'thumbnails'))
         await mkdir(path.join(options.DIR, 'thumbnails', username))
         // console.log("writing thumbnail to disk as", fpath)
-        await fs.promises.rename(file.path, fpath)
+        await fs.promises.copyFile(file.path, fpath)
         console.log("done saving thumbnail")
 
         // console.log("updating metadata")
