@@ -35,7 +35,7 @@ function startServer(options) {
         await mkdir(path.join(options.DIR, 'thumbnails', username))
         // console.log("writing thumbnail to disk as", fpath)
         await fs.promises.copyFile(file.path, fpath)
-        console.log("done saving thumbnail")
+        // console.log("done saving thumbnail")
 
         // console.log("updating metadata")
         return new Promise((res, rej) => {
@@ -48,21 +48,21 @@ function startServer(options) {
                 //fields to update
                 {
                     $push: {
-                        thumbnails:[
+                        thumbnails:
                             {
                                 width:parseInt(params.width),
                                 height:parseInt(params.height),
                                 mimetype:`${params.mtype}/${params.msubtype}`,
-                                src:`docs/${username}/thumbnail/${params.docid}/version/${params.mtype}/${params.msubtype}/${params.width}/${params.height}/thumbnail.jpg`,
+                                src:`/docs/${username}/thumbnail/${params.docid}/version/${params.mtype}/${params.msubtype}/${params.width}/${params.height}/thumbnail.jpg`,
                                 fid:fid,
                             }
-                        ]
+
                     }
                 },
                 {returnUpdatedDocs: true},//options
                 (err, num, doc) => {
                     if (err) return rej(err)
-                    console.log("the updated doc is", doc)
+                    // console.log("the updated doc is", doc)
                     return res(doc)
                 })
         })
@@ -320,14 +320,14 @@ function startServer(options) {
     })
     app.get('/docs/:username/info/:docid/:version',(req,res) => {
         loadDoc(req.params.username,req.params.docid).then(doc => {
-            console.log("got the doc",doc)
+            // console.log("got the doc",doc)
             res.json({doc:doc})
         })
     })
 
     // upload a thumbnail
     app.post('/docs/:username/thumbnail/:docid/:version/:mtype/:msubtype/:width/:height/:filename',allowed,(req,res) => {
-        console.log("doing a thumbnail upload", req.params)
+        // console.log("doing a thumbnail upload", req.params)
         if(req.headers['content-type'].startsWith('multipart')) {
             // console.log("it's multipart")
             new formidable.IncomingForm().parse(req, (err,fields,files)=>{
@@ -345,13 +345,14 @@ function startServer(options) {
 
     app.get('/docs/:username/thumbnail/:docid/:version/:mtype/:msubtype/:width/:height/:filename',(req,res)=>{
         console.log("returning a thumbnail",req.params)
-        // let fpath = path.join(options.DIR,'thumbnails',req.params.username)
-        // const pth = path.resolve()
         loadDoc(req.params.username,req.params.docid).then(doc => {
             console.log("found the doc",doc)
             let thumb = doc.thumbnails.find((t => t.width === parseInt(req.params.width)))
-            console.log("going to return the thumb")
-            let tpath = path.join('thumbnails',fid)
+            if(!thumb) return res.status(400).json({status:'error',
+                message:'thumbnail not found'})
+            console.log("going to return the thumb",thumb)
+            let tpath = path.join(options.DIR,
+                'thumbnails',req.params.username,thumb.fid)
             console.log("tpath is",tpath)
             let pth = path.resolve(tpath)
             console.log("pth is",pth)

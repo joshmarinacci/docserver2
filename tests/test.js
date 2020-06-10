@@ -285,7 +285,7 @@ async function upload_thumbnail_file(app, user, accessKey, docid, image_file, wi
     }
     let url = `/docs/${user}/thumbnail/${docid}/version/${mimetype}/${subtype}/${width}/${height}/thumbnail.${extension}`
     console.log("posting the url",url)
-    console.log('attaching the image file',image_file)
+    // console.log('attaching the image file',image_file)
     return request(app)
         .post(url)
         // .type(`${mimetype}/${subtype}`)
@@ -293,6 +293,17 @@ async function upload_thumbnail_file(app, user, accessKey, docid, image_file, wi
         .attach('thumbnail',image_file)
         .expect('Content-Type', /json/)
         .expect(200)
+}
+
+async function fetch_thumbnail_file(app, user, accessKey, docid, thumbnail) {
+    console.log("thumbnail info is",thumbnail)
+    let url = thumbnail.src
+    console.log("fetching",url)
+    return request(app)
+        .get(url)
+        .set('access-key',accessKey)
+        // .expect('Content-Type', /jpeg/)
+        // .expect(200)
 }
 
 async function test_thumbnails() {
@@ -340,6 +351,9 @@ async function test_thumbnails() {
     // fetch the doc info, confirm two thumbnails w/ correct data
     res = await get_info_by_id(app,'user1',accessKey, docid)
     assert(res.body.doc.thumbnails.length === 2)
+
+    res = await fetch_thumbnail_file(app, 'user1', accessKey, docid, res.body.doc.thumbnails[0])
+    console.log("resulting body is",res.body)
 
     // update first thumbnail
     // await upload_thumbnail_file(app, 'user1', accessKey, 'tests/logo.300.altthumb1.png')
