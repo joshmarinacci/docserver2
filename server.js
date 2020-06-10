@@ -357,9 +357,10 @@ function startServer(options) {
             console.log("pth is",pth)
             res.set('Content-Type',thumb.mimetype)
             res.sendFile(pth)
-        }).catch(e => {})
-        console.log("big error",e)
-        return res.status(400).json({status:'error', message:'error loading the thumbnail requested'})
+        }).catch(e => {
+            console.log("big error", e)
+            return res.status(400).json({status: 'error', message: 'error loading the thumbnail requested'})
+        })
     })
 
 
