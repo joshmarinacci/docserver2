@@ -350,7 +350,7 @@ function startServer(options) {
             let thumb = doc.thumbnails.find((t => t.width === parseInt(req.params.width)))
             if(!thumb) return res.status(400).json({status:'error',
                 message:'thumbnail not found'})
-            console.log("going to return the thumb",thumb)
+            console.log("going to return the thumbs",thumb)
             let tpath = path.join(options.DIR,
                 'thumbnails',req.params.username,thumb.fid)
             console.log("tpath is",tpath)
